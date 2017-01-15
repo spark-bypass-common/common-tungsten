@@ -57,15 +57,24 @@ class DataSet[T: TypeTag] private[tungsten](private val innerDataset: Dataset[T]
 
   /* join相关的连接算子 */
 
-  def leftOuterJoin(anotherDataSet: DataSet[T], joinColumn: String): DataSet[(T, T)] = {
+  def leftOuterJoin[K: TypeTag](anotherDataSet: DataSet[T], joinKey: T => K): DataSet[(T, T)] = {
+    val namedNewDataset = innerDataset.map(record => (joinKey(record), record))
+      .toDF("_1", "_2").as[(K, T)]
+    val namedOldDataset = anotherDataSet.innerDataset.map(record => (joinKey(record), record))
+      .toDF("_1", "_2").as[(K, T)]
+    val newDataset = namedNewDataset.joinWith(namedOldDataset, namedNewDataset("_1") === namedOldDataset("_2"), "left_outer")
+      .map(record => (record._1._2, record._2._2))
 
-    val newDataset = innerDataset.joinWith(anotherDataSet.innerDataset,
-      innerDataset(joinColumn) === anotherDataSet.innerDataset(joinColumn),
-      "left_outer")
     DataSets.createFromDataset(newDataset)
   }
 
-  def cogroup(anotherDataset: DataSet[T], joinKey: T => String): DataSet[(String, (Seq[T], Seq[T]))] = {
+  /**
+    * [[Dataset]]本身并未提供类似于[[org.apache.spark.rdd.PairRDDFunctions.cogroup]]的算子,
+    * 但是这个算子又有着非常重要的作用,在很多场景下无法用[[Dataset.join]]替代.
+    * 这里使用[[Dataset]]的其他算子的一些组合,间接达到模仿cogroup算子输入输出特性的目的.
+    */
+  def cogroup[K: TypeTag](anotherDataset: DataSet[T], joinKey: T => K): DataSet[(Seq[T], Seq[T])] = {
+    // 先预处理innerDataset
     val thisKeyValueSet = innerDataset.groupByKey(data => joinKey(data))
     val thisCogroupSet = thisKeyValueSet.mapGroups((key, dataIter) => {
       val builder = Seq.newBuilder[T]
@@ -73,8 +82,9 @@ class DataSet[T: TypeTag] private[tungsten](private val innerDataset: Dataset[T]
         builder += data
       }
       (key, builder.result)
-    })
+    }).toDF("_1", "_2").as[(K, Seq[T])]
 
+    // 再预处理anotherDataset
     val anotherKeyValueSet = anotherDataset.innerDataset.groupByKey(data => joinKey(data))
     val anotherCogroupSet = anotherKeyValueSet.mapGroups((key, dataIter) => {
       val builder = Seq.newBuilder[T]
@@ -82,10 +92,11 @@ class DataSet[T: TypeTag] private[tungsten](private val innerDataset: Dataset[T]
         builder += data
       }
       (key, builder.result)
-    })
+    }).toDF("_1", "_2").as[(K, Seq[T])]
 
-    val resultDataFrame = thisCogroupSet.join(anotherCogroupSet)
-    val newDataset = resultDataFrame.as[(String, (Seq[T], Seq[T]))]
+    val resultDataFrame = thisCogroupSet.join(anotherCogroupSet, thisCogroupSet("_1") === anotherCogroupSet("_1"), "outer")
+    val newDataset = resultDataFrame.as[(Seq[T], Seq[T])]
+
     DataSets.createFromDataset(newDataset)
   }
 

@@ -44,7 +44,7 @@ object CommonEncoders {
     */
   implicit def encoderForSingle[A: TypeTag]: Encoder[A] = {
     // 获取A所对应的Class
-    val clazz = typeTagToClass
+    val clazz = typeTagToClass[A]
 
     // match case class
     if (CLASS_OF_PRODUCT.isAssignableFrom(clazz)) {
@@ -94,7 +94,7 @@ object CommonEncoders {
     */
   implicit def encoderForContainer[A: TypeTag]: Encoder[Seq[A]] = {
     // 获取A所对应的Class
-    val clazz = typeTagToClass
+    val clazz = typeTagToClass[A]
 
     // match case class
     if (CLASS_OF_PRODUCT.isAssignableFrom(clazz)) {
