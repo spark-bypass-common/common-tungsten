@@ -32,11 +32,6 @@ object CommonEncoders {
   private val CLASS_OF_JAVA_SHORT = classOf[java.lang.Short]
   private val CLASS_OF_JAVA_BYTE = classOf[java.lang.Byte]
   private val CLASS_OF_JAVA_BOOLEAN = classOf[java.lang.Boolean]
-  // Seq(考虑到encoder方法的内部逻辑中需要容器支持协变特性,故这里只能支持Seq而不能支持Array)
-  private val CLASS_OF_PRODUCT_SEQ = classOf[Seq[Product]]
-  private val CLASS_OF_INT_SEQ = classOf[Seq[Int]]
-  private val CLASS_OF_LONG_SEQ = classOf[Seq[Long]]
-
 
   /**
     * 通用的隐式编码器:接收一切类型并在内部逻辑中判断采用最合适的编码器
@@ -51,24 +46,106 @@ object CommonEncoders {
     // 获取A所对应的Class
     val clazz = typeTagToClass
 
+    // match case class
     if (CLASS_OF_PRODUCT.isAssignableFrom(clazz)) {
       ExpressionEncoder[A]()
-    } else if (CLASS_OF_INT.isAssignableFrom(clazz)) {
+    }
+    // match primitive types
+    else if (CLASS_OF_INT.isAssignableFrom(clazz)) {
       ExpressionEncoder[A]()
-    } else if (CLASS_OF_JAVA_INT.isAssignableFrom(clazz)) {
+    } else if (CLASS_OF_LONG.isAssignableFrom(clazz)) {
       ExpressionEncoder[A]()
-    } else if (CLASS_OF_PRODUCT_SEQ.isAssignableFrom(clazz)) {
+    } else if (CLASS_OF_DOUBLE.isAssignableFrom(clazz)) {
       ExpressionEncoder[A]()
-    } else {
-      // 如果没有Encoder能匹配上,那么Encoders.kryo是最后的选择
+    } else if (CLASS_OF_FLOAT.isAssignableFrom(clazz)) {
+      ExpressionEncoder[A]()
+    } else if (CLASS_OF_SHORT.isAssignableFrom(clazz)) {
+      ExpressionEncoder[A]()
+    } else if (CLASS_OF_BYTE.isAssignableFrom(clazz)) {
+      ExpressionEncoder[A]()
+    } else if (CLASS_OF_BOOLEAN.isAssignableFrom(clazz)) {
+      ExpressionEncoder[A]()
+    }
+    // match java primitive types
+    else if (CLASS_OF_JAVA_INT.isAssignableFrom(clazz)) {
+      ExpressionEncoder[A]()
+    } else if (CLASS_OF_JAVA_LONG.isAssignableFrom(clazz)) {
+      ExpressionEncoder[A]()
+    } else if (CLASS_OF_JAVA_DOUBLE.isAssignableFrom(clazz)) {
+      ExpressionEncoder[A]()
+    } else if (CLASS_OF_JAVA_FLOAT.isAssignableFrom(clazz)) {
+      ExpressionEncoder[A]()
+    } else if (CLASS_OF_JAVA_SHORT.isAssignableFrom(clazz)) {
+      ExpressionEncoder[A]()
+    } else if (CLASS_OF_JAVA_BYTE.isAssignableFrom(clazz)) {
+      ExpressionEncoder[A]()
+    } else if (CLASS_OF_JAVA_BOOLEAN.isAssignableFrom(clazz)) {
+      ExpressionEncoder[A]()
+    }
+    // do not match any above
+    else {
+      // 如果没有任何类型能匹配上,那么Encoders.kryo是最后的选择
       Encoders.kryo[A]
     }
   }
 
+  implicit def encoderForContainer[A: TypeTag]: Encoder[Seq[A]] = {
+    // 获取A所对应的Class
+    val clazz = typeTagToClass
+
+    // match case class
+    if (CLASS_OF_PRODUCT.isAssignableFrom(clazz)) {
+      ExpressionEncoder[Seq[A]]()
+    }
+    // match primitive types
+    else if (CLASS_OF_INT.isAssignableFrom(clazz)) {
+      ExpressionEncoder[Seq[A]]()
+    } else if (CLASS_OF_LONG.isAssignableFrom(clazz)) {
+      ExpressionEncoder[Seq[A]]()
+    } else if (CLASS_OF_DOUBLE.isAssignableFrom(clazz)) {
+      ExpressionEncoder[Seq[A]]()
+    } else if (CLASS_OF_FLOAT.isAssignableFrom(clazz)) {
+      ExpressionEncoder[Seq[A]]()
+    } else if (CLASS_OF_SHORT.isAssignableFrom(clazz)) {
+      ExpressionEncoder[Seq[A]]()
+    } else if (CLASS_OF_BYTE.isAssignableFrom(clazz)) {
+      ExpressionEncoder[Seq[A]]()
+    } else if (CLASS_OF_BOOLEAN.isAssignableFrom(clazz)) {
+      ExpressionEncoder[Seq[A]]()
+    }
+    // match java primitive types
+    else if (CLASS_OF_JAVA_INT.isAssignableFrom(clazz)) {
+      ExpressionEncoder[Seq[A]]()
+    } else if (CLASS_OF_JAVA_LONG.isAssignableFrom(clazz)) {
+      ExpressionEncoder[Seq[A]]()
+    } else if (CLASS_OF_JAVA_DOUBLE.isAssignableFrom(clazz)) {
+      ExpressionEncoder[Seq[A]]()
+    } else if (CLASS_OF_JAVA_FLOAT.isAssignableFrom(clazz)) {
+      ExpressionEncoder[Seq[A]]()
+    } else if (CLASS_OF_JAVA_SHORT.isAssignableFrom(clazz)) {
+      ExpressionEncoder[Seq[A]]()
+    } else if (CLASS_OF_JAVA_BYTE.isAssignableFrom(clazz)) {
+      ExpressionEncoder[Seq[A]]()
+    } else if (CLASS_OF_JAVA_BOOLEAN.isAssignableFrom(clazz)) {
+      ExpressionEncoder[Seq[A]]()
+    }
+    // do not match any above
+    else {
+      // 如果没有任何类型能匹配上,那么Encoders.kryo是最后的选择
+      Encoders.kryo[Seq[A]]
+    }
+  }
+
+  /**
+    * 从[[TypeTag]]中获取对应的[[Class]]
+    */
   private def typeTagToClass[T: TypeTag]: Class[T] = {
     typeTag[T].mirror.runtimeClass(typeTag[T].tpe.typeSymbol.asClass).asInstanceOf[Class[T]]
   }
 
+  /**
+    * 隐式转换:将[[TypeTag]]转为[[ClassTag]]
+    */
   implicit def typeTagToClassTag[T: TypeTag]: ClassTag[T] = {
     ClassTag[T](typeTag[T].mirror.runtimeClass(typeTag[T].tpe))
   }
