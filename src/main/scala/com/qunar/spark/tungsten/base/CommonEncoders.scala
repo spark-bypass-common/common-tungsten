@@ -34,7 +34,7 @@ object CommonEncoders {
   private val CLASS_OF_JAVA_BOOLEAN = classOf[java.lang.Boolean]
 
   /**
-    * 通用的隐式编码器:接收一切类型并在内部逻辑中判断采用最合适的编码器
+    * 针对普通类型(非容器)的通用隐式编码器:接收一切类型并在内部逻辑中判断采用最合适的编码器
     * <p/>
     * NOTICE: 与[[SQLImplicits]]针对不同类型编写不同的隐式编码器的策略不同,
     * 本方法接收一切类型并在内部判断所传类型的具体所属,再路由到不同的实际编
@@ -42,7 +42,7 @@ object CommonEncoders {
     * 这样处理可以使外部在使用[[Dataset]]时无需关注自己所传入的类型[[A]],对
     * 任何类型[[A]]都能适配.
     */
-  implicit def encoder[A: TypeTag]: Encoder[A] = {
+  implicit def encoderForSingle[A: TypeTag]: Encoder[A] = {
     // 获取A所对应的Class
     val clazz = typeTagToClass
 
@@ -89,6 +89,9 @@ object CommonEncoders {
     }
   }
 
+  /**
+    * 针对容器类型的通用隐式编码器
+    */
   implicit def encoderForContainer[A: TypeTag]: Encoder[Seq[A]] = {
     // 获取A所对应的Class
     val clazz = typeTagToClass

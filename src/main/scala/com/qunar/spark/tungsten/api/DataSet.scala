@@ -6,14 +6,14 @@ import org.apache.spark.sql.Dataset
 
 import scala.reflect.runtime.universe.TypeTag
 
-
 /**
   * 针对[[org.apache.spark.sql.Dataset]]拓展的api
-  * 作为一种代理模式,[[DataSet]]对[[Dataset]]的功能包装在于:  平滑透明地生成钨丝编码[[org.apache.spark.sql.Encoder]]
+  * 作为一种代理模式,[[DataSet]]对[[Dataset]]的功能包装在于:
+  * 平滑透明地生成钨丝编码[[org.apache.spark.sql.Encoder]]
   * <p/>
   * NOTICE: 为保护核心功能,此类只能由[[com.qunar.spark.tungsten.api.DataSets]]创建
   */
-class DataSet[T] private[tungsten](private val innerDataset: Dataset[T]) extends Serializable {
+class DataSet[T: TypeTag] private[tungsten](private val innerDataset: Dataset[T]) extends Serializable {
 
   /* 函数式算子 */
 
@@ -27,12 +27,14 @@ class DataSet[T] private[tungsten](private val innerDataset: Dataset[T]) extends
     DataSets.createFromDataset(newDataset)
   }
 
-  def mapPartitions[U: TypeTag](func: Iterator[T] => Iterator[U]): DataSet[T] = {
-    null
+  def mapPartitions[U: TypeTag](func: Iterator[T] => Iterator[U]): DataSet[U] = {
+    val newDataset = innerDataset.mapPartitions(func)
+    DataSets.createFromDataset(newDataset)
   }
 
-  def flatMap[U](func: T => TraversableOnce[U]): DataSet[U] = {
-    null
+  def flatMap[U: TypeTag](func: T => TraversableOnce[U]): DataSet[U] = {
+    val newDataset = innerDataset.flatMap(func)
+    DataSets.createFromDataset(newDataset)
   }
 
   /* 命令式算子 */
@@ -53,14 +55,38 @@ class DataSet[T] private[tungsten](private val innerDataset: Dataset[T]) extends
     null
   }
 
-  /* join相关算子 */
+  /* join相关的连接算子 */
 
-  def leftOuterJoin(anotherDataSet: DataSet[T]): DataSet[(T, T)] = {
-    null
+  def leftOuterJoin(anotherDataSet: DataSet[T], joinColumn: String): DataSet[(T, T)] = {
+
+    val newDataset = innerDataset.joinWith(anotherDataSet.innerDataset,
+      innerDataset(joinColumn) === anotherDataSet.innerDataset(joinColumn),
+      "left_outer")
+    DataSets.createFromDataset(newDataset)
   }
 
-  def cogroup(anotherDataset: DataSet[T]): DataSet[(String, (Seq[T], Seq[T]))] = {
-    null
+  def cogroup(anotherDataset: DataSet[T], joinKey: T => String): DataSet[(String, (Seq[T], Seq[T]))] = {
+    val thisKeyValueSet = innerDataset.groupByKey(data => joinKey(data))
+    val thisCogroupSet = thisKeyValueSet.mapGroups((key, dataIter) => {
+      val builder = Seq.newBuilder[T]
+      for (data <- dataIter) {
+        builder += data
+      }
+      (key, builder.result)
+    })
+
+    val anotherKeyValueSet = anotherDataset.innerDataset.groupByKey(data => joinKey(data))
+    val anotherCogroupSet = anotherKeyValueSet.mapGroups((key, dataIter) => {
+      val builder = Seq.newBuilder[T]
+      for (data <- dataIter) {
+        builder += data
+      }
+      (key, builder.result)
+    })
+
+    val resultDataFrame = thisCogroupSet.join(anotherCogroupSet)
+    val newDataset = resultDataFrame.as[(String, (Seq[T], Seq[T]))]
+    DataSets.createFromDataset(newDataset)
   }
 
 }

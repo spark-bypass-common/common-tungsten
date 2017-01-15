@@ -18,7 +18,7 @@ object DataSets extends Serializable {
   /**
     * 给定一个[[Dataset]],创建对应的[[DataSet]]
     */
-  private[tungsten] def createFromDataset[T](dataset: Dataset[T]): DataSet[T] = {
+  private[tungsten] def createFromDataset[T: TypeTag](dataset: Dataset[T]): DataSet[T] = {
     new DataSet[T](dataset)
   }
 
