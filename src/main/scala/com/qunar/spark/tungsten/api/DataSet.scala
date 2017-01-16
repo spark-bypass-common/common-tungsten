@@ -62,7 +62,7 @@ class DataSet[T: TypeTag] private[tungsten](private val innerDataset: Dataset[T]
       .toDF("_1", "_2").as[(K, T)]
     val namedOldDataset = anotherDataSet.innerDataset.map(record => (joinKey(record), record))
       .toDF("_1", "_2").as[(K, T)]
-    val newDataset = namedNewDataset.joinWith(namedOldDataset, namedNewDataset("_1") === namedOldDataset("_2"), "left_outer")
+    val newDataset = namedNewDataset.joinWith(namedOldDataset, namedNewDataset("_1") === namedOldDataset("_1"), "left_outer")
       .map(record => (record._1._2, record._2._2))
 
     DataSets.createFromDataset(newDataset)

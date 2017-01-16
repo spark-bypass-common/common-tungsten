@@ -12,7 +12,7 @@ import scala.reflect.ClassTag
   * 针对[[SQLImplicits]]改造并拓展的通用钨丝编码器
   * 支持 primitive types, case classes, tuples 以及 其他复杂类型
   */
-object CommonEncoders {
+object CommonEncoders extends Serializable {
 
   // case class
   private val CLASS_OF_PRODUCT = classOf[Product]
@@ -92,7 +92,7 @@ object CommonEncoders {
   /**
     * 针对容器类型的通用隐式编码器
     */
-  implicit def encoderForContainer[A: TypeTag]: Encoder[Seq[A]] = {
+  def encoderForContainer[A: TypeTag]: Encoder[Seq[A]] = {
     // 获取A所对应的Class
     val clazz = typeTagToClass[A]
 
