@@ -1,7 +1,7 @@
-package com.qunar.spark.tungsten.api.java;
+package com.qunar.spark.tungsten.api;
 
-import com.qunar.spark.tungsten.api.DataSet;
 import com.qunar.spark.tungsten.base.CommonEncoders;
+import com.qunar.spark.tungsten.base.CoreJoinOperators$;
 import com.qunar.spark.tungsten.base.TypeConverter;
 import org.apache.spark.api.java.function.FilterFunction;
 import org.apache.spark.api.java.function.FlatMapFunction;
@@ -12,7 +12,6 @@ import scala.Function1;
 import scala.Tuple2;
 import scala.collection.JavaConversions$;
 import scala.collection.Seq;
-import scala.reflect.api.TypeTags;
 
 import java.util.List;
 
@@ -23,11 +22,11 @@ public class JDataSet<T> {
 
     private Dataset<T> innerDataset;
 
-    private Dataset<T> getInnerDataset() {
+    Dataset<T> getInnerDataset() {
         return innerDataset;
     }
 
-    protected JDataSet(Dataset<T> dataset) {
+    JDataSet(Dataset<T> dataset) {
         this.innerDataset = dataset;
     }
 
@@ -57,30 +56,6 @@ public class JDataSet<T> {
         return new JDataSet<>(newDataset);
     }
 
-    /**
-     * 为了便于使用{@link DataSet}封装的复杂的join类算子,以复用代码,这里专门提出来
-     * 一个内部类以作其使用接口
-     */
-    private static class DataSetDriver<T> {
-
-        public static DataSet<T> getDataSet() {
-            return new DataSet<T>(innerDataset, TypeConverter.classToTypeTag());
-        }
-
-        public <A> JDataSet<A> dataSetToJDataSet(DataSet<A> dataSet) {
-            Dataset<A> dataset = dataSet.getInnerDataset();
-            return new JDataSet<>(dataset);
-        }
-
-        public <A> DataSet<A> jDataSetToDataSet(JDataSet<A> jDataSet) {
-            Dataset<A> dataset = jDataSet.getInnerDataset();
-            return new DataSet<>(dataset, TypeConverter.classToTypeTag());
-        }
-
-    }
-
-
-
     /* join相关的连接算子 */
 
     /**
@@ -91,8 +66,9 @@ public class JDataSet<T> {
      * @param genJoinKey 数据集记录生成key的函数
      */
     public <K> JDataSet<Tuple2<T, T>> leftOuterJoin(JDataSet<T> anotherJDataSet, Function1<T, K> genJoinKey) {
-        DataSet<Tuple2<T, T>> dataset = dataSet.leftOuterJoin(jDataSetToDataSet(anotherJDataSet), genJoinKey, TypeConverter.classToTypeTag());
-        return dataSetToJDataSet(dataset);
+        Dataset<Tuple2<T, T>> dataset = CoreJoinOperators$.MODULE$.outerJoin(innerDataset, anotherJDataSet.innerDataset, genJoinKey,
+                TypeConverter.classToTypeTag(), TypeConverter.<K>classToTypeTag());
+        return new JDataSet<>(dataset);
     }
 
     /**
@@ -103,13 +79,14 @@ public class JDataSet<T> {
      * @param genJoinKey 数据集记录生成key的函数
      */
     public <K> JDataSet<Tuple2<List<T>, List<T>>> cogroup(JDataSet<T> anotherJDataSet, Function1<T, K> genJoinKey) {
-        DataSet<Tuple2<Seq<T>, Seq<T>>> dataset = dataSet.cogroup(jDataSetToDataSet(anotherJDataSet), genJoinKey, TypeConverter.classToTypeTag());
-        JDataSet<Tuple2<Seq<T>, Seq<T>>> jDataSet = dataSetToJDataSet(dataset);
+        Dataset<Tuple2<Seq<T>, Seq<T>>> dataset = CoreJoinOperators$.MODULE$.cogroup(innerDataset, anotherJDataSet.innerDataset, genJoinKey,
+                TypeConverter.classToTypeTag(), TypeConverter.<K>classToTypeTag());
+        JDataSet<Tuple2<Seq<T>, Seq<T>>> jDataSet = new JDataSet<>(dataset);
         // scala集合转换为java集合
         return jDataSet.map((tuple) -> {
-            List<T> listLeft = JavaConversions$.MODULE$.seqAsJavaList(tuple._1);
-            List<T> listRight = JavaConversions$.MODULE$.seqAsJavaList(tuple._2);
-            return new Tuple2<>(listLeft, listRight);
+            List<T> leftList = JavaConversions$.MODULE$.seqAsJavaList(tuple._1);
+            List<T> rightList = JavaConversions$.MODULE$.seqAsJavaList(tuple._2);
+            return new Tuple2<>(leftList, rightList);
         });
     }
 

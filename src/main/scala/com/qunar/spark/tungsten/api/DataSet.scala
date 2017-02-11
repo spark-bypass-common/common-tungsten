@@ -1,6 +1,7 @@
 package com.qunar.spark.tungsten.api
 
 import com.qunar.spark.tungsten.base.CommonEncoders._
+import com.qunar.spark.tungsten.base.CoreJoinOperators
 import org.apache.spark.sql.Dataset
 
 import scala.reflect.runtime.universe.TypeTag
@@ -54,14 +55,8 @@ class DataSet[T: TypeTag] private[tungsten](private val innerDataset: Dataset[T]
     * @param genJoinKey 数据集记录生成key的函数
     */
   def leftOuterJoin[K: TypeTag](anotherDataSet: DataSet[T], genJoinKey: T => K): DataSet[(T, T)] = {
-    val namedNewDataset = innerDataset.map(record => (genJoinKey(record), record))
-      .toDF("_1", "_2").as[(K, T)]
-    val namedOldDataset = anotherDataSet.innerDataset.map(record => (genJoinKey(record), record))
-      .toDF("_1", "_2").as[(K, T)]
-    val newDataset = namedNewDataset.joinWith(namedOldDataset, namedNewDataset("_1") === namedOldDataset("_1"), "left_outer")
-      .map(record => (record._1._2, record._2._2))
-
-    DataSets.createFromDataset(newDataset)
+    val dataset = CoreJoinOperators.outerJoin(innerDataset, anotherDataSet.innerDataset, genJoinKey)
+    new DataSet[(T, T)](dataset)
   }
 
   /**
@@ -73,31 +68,9 @@ class DataSet[T: TypeTag] private[tungsten](private val innerDataset: Dataset[T]
     *
     * @param genJoinKey 数据集记录生成key的函数
     */
-  def cogroup[K: TypeTag](anotherDataset: DataSet[T], genJoinKey: T => K): DataSet[(Seq[T], Seq[T])] = {
-    // 先预处理innerDataset
-    val thisKeyValueSet = innerDataset.groupByKey(data => genJoinKey(data))
-    val thisCogroupSet = thisKeyValueSet.mapGroups((key, dataIter) => {
-      val builder = Seq.newBuilder[T]
-      for (data <- dataIter) {
-        builder += data
-      }
-      (key, builder.result)
-    }).toDF("_1", "_2").as[(K, Seq[T])]
-
-    // 再预处理anotherDataset
-    val anotherKeyValueSet = anotherDataset.innerDataset.groupByKey(data => genJoinKey(data))
-    val anotherCogroupSet = anotherKeyValueSet.mapGroups((key, dataIter) => {
-      val builder = Seq.newBuilder[T]
-      for (data <- dataIter) {
-        builder += data
-      }
-      (key, builder.result)
-    }).toDF("_1", "_2").as[(K, Seq[T])]
-
-    val resultDataFrame = thisCogroupSet.join(anotherCogroupSet, thisCogroupSet("_1") === anotherCogroupSet("_1"), "outer")
-    val newDataset = resultDataFrame.as[(Seq[T], Seq[T])]
-
-    DataSets.createFromDataset(newDataset)
+  def cogroup[K: TypeTag](anotherDataSet: DataSet[T], genJoinKey: T => K): DataSet[(Seq[T], Seq[T])] = {
+    val dataset = CoreJoinOperators.cogroup(innerDataset, anotherDataSet.innerDataset, genJoinKey)
+    new DataSet[(Seq[T], Seq[T])](dataset)
   }
 
 }

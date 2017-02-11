@@ -74,8 +74,8 @@ object DataSets extends Serializable {
   /**
     * 写入hdfs
     */
-  def writeToHdfs[T](content: Dataset[T], path: String): Unit = {
-    content.map(record => JsonMapper.writeValueAsString(record)).write.save(path)
+  def writeToHdfs[T](content: DataSet[T], path: String): Unit = {
+    content.map(record => JsonMapper.writeValueAsString(record)).getInnerDataset.write.save(path)
   }
 
 }

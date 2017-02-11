@@ -1,13 +1,13 @@
 package com.qunar.spark.tungsten.base
 
 import org.apache.spark.sql.Dataset
-
+import com.qunar.spark.tungsten.base.CommonEncoders._
 import scala.reflect.runtime.universe.TypeTag
 
 /**
   * 核心join相关算子的api
   * </p>
-  * 尽管[[Dataset]]提供了[[Dataset.join]]算子,但是对于被kryo编码的对象,由于二进制编码
+  * 尽管[[Dataset]]提供了[[Dataset.join]]算子,但是对于被kryo编码的复杂对象,由于二进制编码
   * 本身的局限性,却无法使用Spark SQL原生的join算子.
   * 本类的作用就是提供针对以上局限性的间接解决方案:对象拆分与二元组化.
   */
