@@ -1,16 +1,13 @@
 package com.qunar.test
 
+import com.qunar.spark.tungsten.api.DataSets
 import org.junit.Test
 
 class ScalaTest {
 
   @Test
   def test(): Unit = {
-    val ss = classOf[Int]
-    val sss = classOf[Double]
-    if (sss.isAssignableFrom(ss)) {
-      Console.println(sss)
-    }
+    DataSets.readLzoFromHdfs("sss", str => str)
   }
 
 }

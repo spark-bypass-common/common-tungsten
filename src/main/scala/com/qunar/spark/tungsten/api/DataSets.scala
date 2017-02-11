@@ -1,6 +1,7 @@
 package com.qunar.spark.tungsten.api
 
 import com.hadoop.mapreduce.LzoTextInputFormat
+import com.qunar.spark.base.json.JsonMapper
 import com.qunar.spark.tungsten.base.SparkSessions
 import com.qunar.spark.tungsten.base.CommonEncoders._
 import org.apache.hadoop.io.{LongWritable, Text}
@@ -9,7 +10,7 @@ import org.apache.spark.sql.Dataset
 import scala.reflect.runtime.universe.TypeTag
 
 /**
-  * 管理[[DataSet]]的通用工具类
+  * 生成与使用[[DataSet]]的通用scala入口类
   */
 object DataSets extends Serializable {
 
@@ -74,7 +75,7 @@ object DataSets extends Serializable {
     * 写入hdfs
     */
   def writeToHdfs[T](content: Dataset[T], path: String): Unit = {
-    //    content.map(record => JsonUtil.writeValueAsString(record)).write.save(path)
+    content.map(record => JsonMapper.writeValueAsString(record)).write.save(path)
   }
 
 }

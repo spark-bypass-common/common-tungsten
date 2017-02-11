@@ -1,12 +1,13 @@
 package com.qunar.spark.tungsten.base
 
+import com.qunar.spark.tungsten.base.TypeConverter._
+
 import scala.reflect.runtime.universe._
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder
 import org.apache.spark.sql.{ColumnName, _}
 
 import scala.language.implicitConversions
-import scala.reflect.ClassTag
 
 /**
   * 针对[[SQLImplicits]]改造并拓展的通用钨丝编码器
@@ -137,20 +138,6 @@ object CommonEncoders extends Serializable {
       // 如果没有任何类型能匹配上,那么Encoders.kryo是最后的选择
       Encoders.kryo[Seq[A]]
     }
-  }
-
-  /**
-    * 从[[TypeTag]]中获取对应的[[Class]]
-    */
-  private def typeTagToClass[T: TypeTag]: Class[T] = {
-    typeTag[T].mirror.runtimeClass(typeTag[T].tpe.typeSymbol.asClass).asInstanceOf[Class[T]]
-  }
-
-  /**
-    * 隐式转换:将[[TypeTag]]转为[[ClassTag]]
-    */
-  implicit def typeTagToClassTag[T: TypeTag]: ClassTag[T] = {
-    ClassTag[T](typeTag[T].mirror.runtimeClass(typeTag[T].tpe))
   }
 
   /**
