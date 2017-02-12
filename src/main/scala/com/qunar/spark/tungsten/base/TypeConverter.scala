@@ -7,7 +7,7 @@ import scala.reflect.runtime.universe._
   * scala中: [[scala.reflect.api.TypeTags.TypeTag]],[[scala.reflect.ClassTag]],[[Class]]等之间的转换
   * 供scala api 或 java api 使用
   */
-object TypeConverter {
+object TypeConverter extends Serializable {
 
   /**
     * 从[[TypeTag]]中获取对应的[[Class]]
