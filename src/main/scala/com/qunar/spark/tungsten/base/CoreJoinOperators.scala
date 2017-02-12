@@ -15,19 +15,21 @@ import scala.reflect.runtime.universe.TypeTag
 private[tungsten] object CoreJoinOperators {
 
   /**
-    * ''外连接算子''
+    * ''连接算子''
     * </p>
-    * 这里我们重新封装了[[org.apache.spark.rdd.RDD]]时代经典的XXOuterJoin算子,
-    * 方便业务线使用.
+    * 由于[[Dataset]]原生的join的返回结果是[[org.apache.spark.sql.Row]]类型的
+    * [[org.apache.spark.sql.DataFrame]],擦除了原本类型,于是这里我们重新封装了
+    * [[org.apache.spark.rdd.RDD]]时代经典的XXJoin强类型算子,方便业务线使用.
     *
     * @param genJoinKey 数据集记录生成key的函数
+    * @param joinType   连接类型,`inner`, `outer`, `left_outer`, `right_outer`, `leftsemi` 中之一
     */
-  def outerJoin[T: TypeTag, K: TypeTag](leftDataset: Dataset[T], rightDataset: Dataset[T], genJoinKey: T => K): Dataset[(T, T)] = {
+  def strongTypeJoin[T: TypeTag, K: TypeTag](leftDataset: Dataset[T], rightDataset: Dataset[T], genJoinKey: T => K, joinType: String): Dataset[(T, T)] = {
     val namedLeftDataset = leftDataset.map(record => (genJoinKey(record), record))
       .toDF("_1", "_2").as[(K, T)]
     val namedRightDataset = rightDataset.map(record => (genJoinKey(record), record))
       .toDF("_1", "_2").as[(K, T)]
-    namedLeftDataset.joinWith(namedRightDataset, namedLeftDataset("_1") === namedRightDataset("_1"), "left_outer")
+    namedLeftDataset.joinWith(namedRightDataset, namedLeftDataset("_1") === namedRightDataset("_1"), joinType)
       .map(record => (record._1._2, record._2._2))
   }
 

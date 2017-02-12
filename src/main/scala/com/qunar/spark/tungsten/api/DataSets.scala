@@ -24,7 +24,7 @@ object DataSets extends Serializable {
   }
 
   /**
-    * 读出原始内容(text或gzip)并转成[[Dataset[String] ]]
+    * 读出原始内容(text或gzip)并转成[[DataSet[String] ]]
     */
   def readTextFromHdfs(path: String): DataSet[String] = {
     val dataset = sparkSession.read
@@ -35,7 +35,7 @@ object DataSets extends Serializable {
   }
 
   /**
-    * 读出原始内容(text或gzip)并转换成[[Dataset[T] ]]
+    * 读出原始内容(text或gzip)并转换成[[DataSet[T] ]]
     */
   def readTextFromHdfs[T: TypeTag](path: String, convert: (String) => T): DataSet[T] = {
     val dataset = sparkSession.read
@@ -47,24 +47,26 @@ object DataSets extends Serializable {
   }
 
   /**
-    * 读出LZO压缩文件并转换成[[Dataset[String] ]]
+    * 读出LZO压缩文件并转换成[[DataSet[String] ]]
     */
   def readLzoFromHdfs(path: String): DataSet[String] = {
     val dataset = sparkSession.sparkContext
       .newAPIHadoopFile[LongWritable, Text, LzoTextInputFormat](path)
-      .map(record => record._2.toString)
+      .values
+      .map(_.toString)
       .toDS
 
     createFromDataset(dataset)
   }
 
   /**
-    * 读出LZO压缩文件并转换成[[Dataset[T] ]]
+    * 读出LZO压缩文件并转换成[[DataSet[T] ]]
     */
   def readLzoFromHdfs[T: TypeTag](path: String, convert: (String) => T): DataSet[T] = {
     val dataset = sparkSession.sparkContext
       .newAPIHadoopFile[LongWritable, Text, LzoTextInputFormat](path)
-      .map(record => record._2.toString)
+      .values
+      .map(_.toString)
       .toDS
       .map(convert)
 
@@ -72,10 +74,10 @@ object DataSets extends Serializable {
   }
 
   /**
-    * 写入hdfs
+    * 将[[DataSet[T] ]]写入hdfs
     */
   def writeToHdfs[T](content: DataSet[T], path: String): Unit = {
-    content.map(record => JsonMapper.writeValueAsString(record)).getInnerDataset.write.save(path)
+    content.getInnerDataset.map(record => JsonMapper.writeValueAsString(record)).write.save(path)
   }
 
 }

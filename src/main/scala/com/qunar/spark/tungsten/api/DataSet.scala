@@ -8,9 +8,6 @@ import scala.reflect.runtime.universe.TypeTag
 
 /**
   * 针对[[org.apache.spark.sql.Dataset]]拓展的api
-  * 作为一种代理模式,那么[[DataSet]]对[[Dataset]]的功能包装在于:
-  * 1. 平滑透明地生成钨丝编码[[org.apache.spark.sql.Encoder]]
-  * 2. 封装[[Dataset]]所没有提供的[[leftOuterJoin]]方法与[[cogroup]]方法,方便业务线使用
   * <p/>
   * NOTICE: 为保护核心功能,此类只能由[[com.qunar.spark.tungsten]]包内的类构造
   */
@@ -48,23 +45,36 @@ class DataSet[T: TypeTag] private[tungsten](private val innerDataset: Dataset[T]
   /**
     * ''左外连接算子''
     * </p>
-    * 尽管[[Dataset]]提供了[[Dataset.join]]算子,但是对于被kryo编码的对象,则无法使用
-    * 这里我们重新封装了[[org.apache.spark.rdd.RDD]]时代经典的[[leftOuterJoin]]算子,
-    * 方便业务线使用.
+    * 利用[[CoreJoinOperators.strongTypeJoin]]方法构造左外连接算子
+    * 这里将不会提供右外连接,因为其本质上可以用左外连接实现
     *
     * @param genJoinKey 数据集记录生成key的函数
     */
   def leftOuterJoin[K: TypeTag](anotherDataSet: DataSet[T], genJoinKey: T => K): DataSet[(T, T)] = {
-    val dataset = CoreJoinOperators.outerJoin(innerDataset, anotherDataSet.innerDataset, genJoinKey)
+    val dataset = CoreJoinOperators.strongTypeJoin(innerDataset, anotherDataSet.innerDataset, genJoinKey, "left_outer")
+    new DataSet[(T, T)](dataset)
+  }
+
+  /**
+    * 同上,''内连接算子''
+    */
+  def innerJoin[K: TypeTag](anotherDataSet: DataSet[T], genJoinKey: T => K): DataSet[(T, T)] = {
+    val dataset = CoreJoinOperators.strongTypeJoin(innerDataset, anotherDataSet.innerDataset, genJoinKey, "inner")
+    new DataSet[(T, T)](dataset)
+  }
+
+  /**
+    * 同上,''全外连接算子''
+    */
+  def fullOuterJoin[K: TypeTag](anotherDataSet: DataSet[T], genJoinKey: T => K): DataSet[(T, T)] = {
+    val dataset = CoreJoinOperators.strongTypeJoin(innerDataset, anotherDataSet.innerDataset, genJoinKey, "outer")
     new DataSet[(T, T)](dataset)
   }
 
   /**
     * ''cogroup算子''
     * </p>
-    * [[Dataset]]本身并未提供类似于[[org.apache.spark.rdd.PairRDDFunctions.cogroup]]的算子,
-    * 但是这个算子又有着非常重要的作用,在很多场景下无法用[[Dataset.join]]替代.
-    * 这里使用[[Dataset]]的其他算子的一些组合,间接达到模仿cogroup算子输入输出特性的目的.
+    * 对[[CoreJoinOperators.cogroup]]方法的简单封装
     *
     * @param genJoinKey 数据集记录生成key的函数
     */

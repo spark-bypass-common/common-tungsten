@@ -8,7 +8,9 @@ import org.apache.spark.sql.Dataset
 import scala.language.implicitConversions
 
 /**
-  * [[com.qunar.spark.tungsten.api.DataSet]]针对java的定制api
+  * 区别于[[com.qunar.spark.tungsten.api.DataSet]],针对java的定制api
+  * </p>
+  * NOTICE: 为保护核心功能,此类只能由[[com.qunar.spark.tungsten]]包内的类构造
   */
 class JDataSet[T] private[tungsten](private val innerDataset: Dataset[T]) extends Serializable {
 
@@ -51,38 +53,42 @@ class JDataSet[T] private[tungsten](private val innerDataset: Dataset[T]) extend
   /**
     * ''左外连接算子''
     * </p>
-    * 尽管[[Dataset]]提供了[[Dataset.join]]算子,但是对于被kryo编码的对象,则无法使用
-    * 这里我们重新封装了[[org.apache.spark.rdd.RDD]]时代经典的[[leftOuterJoin]]算子,
-    * 方便业务线使用.
+    * 利用[[CoreJoinOperators.strongTypeJoin]]方法构造左外连接算子
+    * 这里将不会提供右外连接,因为其本质上可以用左外连接实现
     *
     * @param genJoinKey 数据集记录生成key的函数
     */
   def leftOuterJoin[K](anotherJDataSet: JDataSet[T], genJoinKey: MapFunction[T, K]): JDataSet[(T, T)] = {
-    val dataset = CoreJoinOperators.outerJoin(innerDataset, anotherJDataSet.innerDataset, genJoinKey)
+    val dataset = CoreJoinOperators.strongTypeJoin(innerDataset, anotherJDataSet.innerDataset, genJoinKey, "left_outer")
+    new JDataSet[(T, T)](dataset)
+  }
+
+  /**
+    * 同上,''内连接算子''
+    */
+  def innerJoin[K](anotherJDataSet: JDataSet[T], genJoinKey: MapFunction[T, K]): JDataSet[(T, T)] = {
+    val dataset = CoreJoinOperators.strongTypeJoin(innerDataset, anotherJDataSet.innerDataset, genJoinKey, "inner")
+    new JDataSet[(T, T)](dataset)
+  }
+
+  /**
+    * 同上,''全外连接算子''
+    */
+  def fullOuterJoin[K](anotherJDataSet: JDataSet[T], genJoinKey: MapFunction[T, K]): JDataSet[(T, T)] = {
+    val dataset = CoreJoinOperators.strongTypeJoin(innerDataset, anotherJDataSet.innerDataset, genJoinKey, "outer")
     new JDataSet[(T, T)](dataset)
   }
 
   /**
     * ''cogroup算子''
     * </p>
-    * [[Dataset]]本身并未提供类似于[[org.apache.spark.rdd.PairRDDFunctions.cogroup]]的算子,
-    * 但是这个算子又有着非常重要的作用,在很多场景下无法用[[Dataset.join]]替代.
-    * 这里使用[[Dataset]]的其他算子的一些组合,间接达到模仿cogroup算子输入输出特性的目的.
+    * 对[[CoreJoinOperators.cogroup]]方法的简单封装
     *
     * @param genJoinKey 数据集记录生成key的函数
     */
   def cogroup[K](anotherJDataSet: JDataSet[T], genJoinKey: MapFunction[T, K]): JDataSet[(Seq[T], Seq[T])] = {
     val dataset = CoreJoinOperators.cogroup(innerDataset, anotherJDataSet.innerDataset, genJoinKey)
     new JDataSet[(Seq[T], Seq[T])](dataset)
-  }
-
-  /**
-    * 将[[MapFunction]]隐式转换为函数对象[[T => K]]
-    * 用于无缝调用[[CoreJoinOperators]]的各种带函数式参数的方法
-    */
-  implicit private def commandToFunctional[K](genJoinKey: MapFunction[T, K]): T => K = {
-    def func(value: T): K = genJoinKey.call(value)
-    func _
   }
 
 }
